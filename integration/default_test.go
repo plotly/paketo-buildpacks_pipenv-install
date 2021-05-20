@@ -83,6 +83,10 @@ func testDefault(t *testing.T, context spec.G, it spec.S) {
 				MatchRegexp(fmt.Sprintf(`    PATH           -> "/layers/%s/packages/[\w_-]+/bin:\$PATH"`, strings.ReplaceAll(buildpackInfo.Buildpack.ID, "/", "_"))),
 				MatchRegexp(fmt.Sprintf(`    PYTHONUSERBASE -> "/layers/%s/packages/[\w_-]+"`, strings.ReplaceAll(buildpackInfo.Buildpack.ID, "/", "_"))),
 			))
+			Expect(logs).To(ContainLines(
+				// Due to Pipfile requirement
+				MatchRegexp(`    Installing CPython 3.7.\d+`),
+			))
 
 			container, err = docker.Container.Run.
 				WithCommand("gunicorn server:app").

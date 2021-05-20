@@ -12,3 +12,6 @@ tox = "*"
 coverage = "*"
 "flake8" = "*"
 flask-testing = "*"
+
+[requires]
+python_version = "3.7"

@@ -15,10 +15,14 @@ func main() {
 	planner := draft.NewPlanner()
 	logger := scribe.NewEmitter(os.Stdout)
 	installProcess := pipenvinstall.NewPipenvInstallProcess(pexec.NewExecutable("pipenv"), logger)
+	pipfileParser := pipenvinstall.NewPipfileParser()
 	lockParser := pipenvinstall.NewPipfileLockParser()
 
 	packit.Run(
-		pipenvinstall.Detect(lockParser),
+		pipenvinstall.Detect(
+			pipfileParser,
+			lockParser,
+		),
 		pipenvinstall.Build(
 			planner,
 			installProcess,

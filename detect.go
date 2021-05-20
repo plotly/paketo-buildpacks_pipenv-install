@@ -31,7 +31,7 @@ type Parser interface {
 //
 // Detection will contribute a Build Plan that provides site-packages,
 // and requires cpython and pipenv at build.
-func Detect(pipfileLockParser Parser) packit.DetectFunc {
+func Detect(pipfileParser, pipfileLockParser Parser) packit.DetectFunc {
 	return func(context packit.DetectContext) (packit.DetectResult, error) {
 		_, err := os.Stat(filepath.Join(context.WorkingDir, "Pipfile"))
 		if err != nil {
@@ -49,18 +49,40 @@ func Detect(pipfileLockParser Parser) packit.DetectFunc {
 			},
 		}
 
-		cpythonVersion, err := pipfileLockParser.ParseVersion(context.WorkingDir)
+		lockFileExists, err := fileExists(filepath.Join(context.WorkingDir, "Pipfile.lock"))
 		if err != nil {
-			if !errors.Is(err, os.ErrNotExist) {
-				return packit.DetectResult{}, err
-			}
+			return packit.DetectResult{}, packit.Fail.WithMessage("failed trying to stat Pipfile.lock: %w", err)
 		}
 
-		if cpythonVersion != "" {
-			cpythonRequirement.Metadata = BuildPlanMetadata{
-				Build:         true,
-				Version:       cpythonVersion,
-				VersionSource: "Pipfile.lock",
+		if lockFileExists {
+			cpythonVersion, err := pipfileLockParser.ParseVersion(context.WorkingDir)
+			if err != nil {
+				if !errors.Is(err, os.ErrNotExist) {
+					return packit.DetectResult{}, err
+				}
+			}
+
+			if cpythonVersion != "" {
+				cpythonRequirement.Metadata = BuildPlanMetadata{
+					Build:         true,
+					Version:       cpythonVersion,
+					VersionSource: "Pipfile.lock",
+				}
+			}
+		} else {
+			cpythonVersion, err := pipfileParser.ParseVersion(context.WorkingDir)
+			if err != nil {
+				if !errors.Is(err, os.ErrNotExist) {
+					return packit.DetectResult{}, err
+				}
+			}
+
+			if cpythonVersion != "" {
+				cpythonRequirement.Metadata = BuildPlanMetadata{
+					Build:         true,
+					Version:       cpythonVersion,
+					VersionSource: "Pipfile",
+				}
 			}
 		}
 
@@ -81,4 +103,15 @@ func Detect(pipfileLockParser Parser) packit.DetectFunc {
 			},
 		}, nil
 	}
+}
+
+func fileExists(path string) (bool, error) {
+	_, err := os.Stat(path)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
 }

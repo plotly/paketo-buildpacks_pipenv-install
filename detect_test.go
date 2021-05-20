@@ -16,10 +16,11 @@ import (
 
 func testDetect(t *testing.T, context spec.G, it spec.S) {
 	var (
-		Expect     = NewWithT(t).Expect
-		detect     packit.DetectFunc
-		lockParser *fakes.Parser
-		workingDir string
+		Expect        = NewWithT(t).Expect
+		detect        packit.DetectFunc
+		lockParser    *fakes.Parser
+		pipfileParser *fakes.Parser
+		workingDir    string
 	)
 
 	it.Before(func() {
@@ -30,9 +31,10 @@ func testDetect(t *testing.T, context spec.G, it spec.S) {
 		err = ioutil.WriteFile(filepath.Join(workingDir, "Pipfile"), []byte{}, 0644)
 		Expect(err).NotTo(HaveOccurred())
 
+		pipfileParser = &fakes.Parser{}
 		lockParser = &fakes.Parser{}
 
-		detect = pipenvinstall.Detect(lockParser)
+		detect = pipenvinstall.Detect(pipfileParser, lockParser)
 	})
 
 	context("detection", func() {
@@ -61,7 +63,7 @@ func testDetect(t *testing.T, context spec.G, it spec.S) {
 					},
 				},
 			}))
-			Expect(lockParser.ParseVersionCall.Receives.Path).To(Equal(workingDir))
+			Expect(pipfileParser.ParseVersionCall.Receives.Path).To(Equal(workingDir))
 		})
 
 		context("when there is no Pipfile", func() {
@@ -74,6 +76,25 @@ func testDetect(t *testing.T, context spec.G, it spec.S) {
 					WorkingDir: workingDir,
 				})
 				Expect(err).To(MatchError(packit.Fail))
+			})
+		})
+
+		context("when there is a Pipfile.lock", func() {
+			it.Before(func() {
+				err := ioutil.WriteFile(filepath.Join(workingDir, "Pipfile.lock"), []byte{}, 0644)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			it.After(func() {
+				Expect(os.Remove(filepath.Join(workingDir, "Pipfile.lock"))).To(Succeed())
+			})
+
+			it("calls Pipfile lock parser", func() {
+				_, err := detect(packit.DetectContext{
+					WorkingDir: workingDir,
+				})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(lockParser.ParseVersionCall.Receives.Path).To(Equal(workingDir))
 			})
 		})
 
